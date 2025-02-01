@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLOCK BLITZ</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            font-family: 'Arial Black', Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #000;
+        }
+
+        #title {
+            font-size: 3.5rem;
+            letter-spacing: 4px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            display: flex;
+            gap: 10px;
+        }
+
+        .title-letter {
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        #scoreboard {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #placement-area, #generation-area {
+            display: grid;
+            grid-template-columns: repeat(10, 30px);
+            gap: 2px;
+            background-color: #111;
+            padding: 5px;
+            border-radius: 4px;
+            border: 2px solid #222;
+        }
+
+        #generation-area {
+            grid-template-columns: repeat(12, 30px);
+            grid-template-rows: repeat(4, 30px);
+        }
+
+
+        #placement-area {
+            grid-template-rows: repeat(10, 30px);
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .block {
+            cursor: grab;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        .highlight-red {
+            background-color: rgba(255, 50, 50, 0.2) !important;
+            box-shadow: inset 0 0 8px rgba(255, 0, 0, 0.3);
+        }
+
+        .ghost-container {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0.4;
+            z-index: 1;
+            display: none;
+        }
+
+        .ghost-block {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 12px 25px;
+            cursor: pointer;
+            background-color: #2a2a2a;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #333;
+            transform: translateY(-2px);
+        }
+
+        #game-over-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #game-over-popup {
+            background-color: #222;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<div id="title">
+    <span class="title-letter" style="color: #3FE0D0">B</span>
+    <span class="title-letter" style="color: #7A6FF0">L</span>
+    <span class="title-letter" style="color: #FF6B6B">O</span>
+    <span class="title-letter" style="color: #4ECDC4">C</span>
+    <span class="title-letter" style="color: #45B7D1">K</span>
+    <span class="title-letter" style="color: #FF9F43">B</span>
+    <span class="title-letter" style="color: #6C5CE7">L</span>
+    <span class="title-letter" style="color: #00B894">I</span>
+    <span class="title-letter" style="color: #D63031">T</span>
+    <span class="title-letter" style="color: #FDCB6E">Z</span>
+</div>
+<div id="scoreboard">HIGH SCORE: <span id="high-score">0</span></div>
+<div id="game-container">
+    <div id="placement-area"></div>
+    <div id="generation-area"></div>
+</div>
+<button id="start-button">NEW GAME</button>
+
+<div id="game-over-overlay">
+    <div id="game-over-popup">
+        <h2>GAME OVER!</h2>
+        <p>Your High Score: <span id="game-over-high-score"></span></p>
+        <button id="restart-button">Restart</button>
+    </div>
+</div>
+
+<script>
+    // Updated color palette (muted neon)
+    const colors = ["#3FE0D0", "#7A6FF0", "#FF6B6B", "#4ECDC4", "#45B7D1", "#FF9F43"];
+
+    // Modified scoring system
+    const BASE_POINTS_PER_LINE = 50;
+    const COMBO_BASE_BONUS = 100;
+    const COMBO_MULTIPLIER = 1.05;
+
+    const gridSize = 10;
+    highScore = 0;
+    let currentScore = 0;
+    let currentShapes = [];
+    let isDragging = false;
+    let draggedShape = null;
+    let ghostContainer = null;
+    let gameActive = true;
+
+    const placementArea = document.getElementById('placement-area');
+    const generationArea = document.getElementById('generation-area');
+    const startButton = document.getElementById('start-button');
+    const highScoreElement = document.getElementById('high-score');
+    const gameOverOverlay = document.getElementById('game-over-overlay');
+    const gameOverHighScore = document.getElementById('game-over-high-score');
+    const restartButton = document.getElementById('restart-button');
+
+
+    function createGrid(container, rows, cols) {
+        container.innerHTML = '';
+        const grid = [];
+        for (let i = 0; i < rows; i++) {
+            grid[i] = [];
+            for (let j = 0; j < cols; j++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                container.appendChild(cell);
+                grid[i][j] = cell;
+            }
+        }
+        return grid;
+    }
+
+    let placementGrid = createGrid(placementArea, 10, 10);
+    let generationGrid = createGrid(generationArea, 4, 12);
+
+     function generateShape() {
+        if (!gameActive) return;
+
+        generationGrid.flat().forEach(cell => {
+            cell.classList.remove('block');
+            cell.style.backgroundColor = '#1a1a1a';
+            cell.removeEventListener('mousedown', startDrag);
+        });
+
+        currentShapes = [];
+
+        const shapes = [
+            [[0, 0], [0, 1], [1, 0]],
+            [[0, 0], [0, 1], [0, 2]],
+            [[0, 0], [1, 0]],
+            [[0, 0], [0, 1], [1, 0], [1, 1]],
+            [[0, 0], [0, 1], [0, 2], [0, 3]], // line of 4
+            [[0, 0], [1, 0], [2, 0], [1, 1]], // T-shape
+            [[0, 0], [0, 1], [1, 1], [1, 2]], // zig zag shape
+            [[0, 0], [0, 1], [1, 1], [2, 1]], // L shape
+            [[0, 1], [1, 1], [2, 1], [2, 0]]  // other L shape
+        ];
+
+        let placedCount = 0;
+
+        for (let i = 0; i < 3; i++) {
+            if (Math.random() < .8) {
+                const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+
+                const offsetX = placedCount * 4;
+
+
+                let canPlace = shape.every(([row, col]) => {
+                    const targetCol = col + offsetX;
+                    return targetCol < 12 && !generationGrid[row][targetCol].classList.contains('block')
+                })
+                if (canPlace) {
+                    const newShape = { shape, color, offsetX };
+                    currentShapes.push(newShape)
+                    shape.forEach(([row, col]) => {
+                        const cell = generationGrid[row][col + offsetX];
+                        cell.classList.add('block');
+                        cell.style.backgroundColor = color;
+                        cell.addEventListener('mousedown', (e) => startDrag(e, newShape));
+                    });
+                    placedCount++;
+                }
+            }
+        }
+
+
+        if (isGameOver()) {
+            endGame();
+            return;
+        }
+    }
+
+
+    function createGhost(row, col, shape) {
+        if (ghostContainer) ghostContainer.remove();
+
+        ghostContainer = document.createElement('div');
+        ghostContainer.className = 'ghost-container';
+
+        shape.shape.forEach(([dr, dc]) => {
+            const ghostBlock = document.createElement('div');
+            ghostBlock.className = 'ghost-block';
+            ghostBlock.style.backgroundColor = shape.color;
+            ghostBlock.style.transform = `translate(${dc * 32}px, ${dr * 32}px)`;
+
+            ghostContainer.appendChild(ghostBlock);
+        });
+
+        const rect = placementArea.getBoundingClientRect();
+        ghostContainer.style.left = `${rect.left + (col * 32)}px`;
+        ghostContainer.style.top = `${rect.top + (row * 32)}px`;
+        document.body.appendChild(ghostContainer);
+    }
+
+
+    function startDrag(e, shape) {
+        if (!gameActive) return;
+        isDragging = true;
+        draggedShape = shape;
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', stopDrag);
+        handleDrag(e);
+    }
+
+    function handleDrag(e) {
+        if (!isDragging || !draggedShape) return;
+
+        const rect = placementArea.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const col = Math.floor(x / 32);
+        const row = Math.floor(y / 32);
+
+        if (isValidPlacement(row, col, draggedShape)) {
+            createGhost(row, col, draggedShape);
+            ghostContainer.style.display = 'block';
+            highlightValidPosition(row, col, draggedShape);
+        } else {
+            if (ghostContainer) ghostContainer.style.display = 'none';
+            clearHighlights();
+        }
+    }
+
+
+   function stopDrag(e) {
+        isDragging = false;
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', stopDrag);
+
+        if (ghostContainer) {
+            ghostContainer.remove();
+            ghostContainer = null;
+        }
+
+        const success = placeShape(e, draggedShape);
+        if (success) {
+            // Remove the shape from the generation area visually and from currentShapes
+            draggedShape.shape.forEach(([row, col]) => {
+                const cell = generationGrid[row][col + draggedShape.offsetX];
+                cell.classList.remove('block');
+                cell.style.backgroundColor = '#1a1a1a';
+                 cell.removeEventListener('mousedown', startDrag)
+            });
+
+            currentShapes = currentShapes.filter(shape => shape !== draggedShape)
+            checkCompletedLines();
+            if (currentShapes.length === 0) {
+                generateShape();
+            }
+        }
+        clearHighlights();
+        draggedShape = null;
+    }
+
+
+    function highlightValidPosition(row, col, shape) {
+        clearHighlights();
+        shape.shape.forEach(([dr, dc]) => {
+            const targetRow = row + dr;
+            const targetCol = col + dc;
+            if (targetRow >= 0 && targetRow < gridSize && targetCol >= 0 && targetCol < gridSize) {
+                placementGrid[targetRow][targetCol].classList.add('highlight-red');
+            }
+        });
+    }
+
+
+    function isValidPlacement(row, col, shape) {
+        return shape.shape.every(([dr, dc]) => {
+            const targetRow = row + dr;
+            const targetCol = col + dc;
+            return (
+                targetRow >= 0 && targetRow < gridSize &&
+                targetCol >= 0 && targetCol < gridSize &&
+                !placementGrid[targetRow][targetCol].classList.contains('block')
+            );
+        });
+    }
+
+
+    function placeShape(e, shape) {
+        const rect = placementArea.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const col = Math.floor(x / 32);
+        const row = Math.floor(y / 32);
+
+        if (!isValidPlacement(row, col, shape)) return false;
+
+        shape.shape.forEach(([dr, dc]) => {
+            const targetRow = row + dr;
+            const targetCol = col + dc;
+            placementGrid[targetRow][targetCol].classList.add('block');
+            placementGrid[targetRow][targetCol].style.backgroundColor = shape.color;
+        });
+
+        return true;
+    }
+
+    function checkCompletedLines() {
+    let linesCleared = 0;
+    let rowsToClear = [];
+    let colsToClear = [];
+
+
+    for (let row = 0; row < gridSize; row++) {
+        let rowComplete = true;
+        for (let col = 0; col < gridSize; col++) {
+            if (!placementGrid[row][col].classList.contains('block')) {
+                rowComplete = false;
+                break;
+            }
+        }
+         if (rowComplete) {
+            rowsToClear.push(row);
+        }
+    }
+
+
+    for (let col = 0; col < gridSize; col++) {
+        let colComplete = true;
+        for (let row = 0; row < gridSize; row++) {
+             if (!placementGrid[row][col].classList.contains('block')) {
+                colComplete = false;
+                break;
+            }
+        }
+        if (colComplete) {
+           colsToClear.push(col);
+        }
+    }
+
+
+    linesCleared = rowsToClear.length + colsToClear.length;
+    let comboBonus = 0;
+
+    if (linesCleared >= 2) {
+        const comboCount = linesCleared - 1;
+        comboBonus = COMBO_BASE_BONUS * Math.pow(COMBO_MULTIPLIER, comboCount - 1);
+    }
+
+    // Calculate points
+    const basePoints = linesCleared * BASE_POINTS_PER_LINE;
+    const totalPoints = basePoints + Math.round(comboBonus);
+
+    currentScore += totalPoints;
+
+
+     if (currentScore > highScore) {
+       highScore = currentScore;
+       highScoreElement.textContent = highScore;
+     }
+
+     // Clear the lines after scoring
+     rowsToClear.forEach(row => {
+        for (let col = 0; col < gridSize; col++) {
+            placementGrid[row][col].classList.remove('block');
+            placementGrid[row][col].style.backgroundColor = '#1a1a1a';
+        }
+    });
+
+
+    colsToClear.forEach(col => {
+        for (let row = 0; row < gridSize; row++) {
+            placementGrid[row][col].classList.remove('block');
+            placementGrid[row][col].style.backgroundColor = '#1a1a1a';
+         }
+     });
+
+
+    return linesCleared;
+}
+
+
+    function clearHighlights() {
+        placementGrid.flat().forEach(cell => {
+            cell.classList.remove('highlight-red');
+        });
+    }
+
+    function isGameOver() {
+        // No shapes left means we can generate new ones
+        if (currentShapes.length === 0) {
+            return false;
+        }
+
+        // Check each shape in currentShapes
+        for (const shape of currentShapes) {
+            // Check every possible position on the placement grid
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    if (isValidPlacement(row, col, shape)) {
+                        return false; // Found at least one valid placement
+                    }
+                }
+            }
+        }
+        return true; // No valid placements found for any shape
+    }
+
+    function endGame() {
+        gameActive = false;
+        // Update high score if needed
+        if (currentScore > highScore) {
+            highScore = currentScore;
+            localStorage.setItem('highScore', highScore);
+        }
+        gameOverHighScore.textContent = highScore;
+        gameOverOverlay.style.display = 'flex';
+    }
+
+    function startGame() {
+        placementGrid = createGrid(placementArea, 10, 10);
+        generationGrid = createGrid(generationArea, 4, 12);
+        currentScore = 0;
+        gameActive = true;
+        gameOverOverlay.style.display = 'none';
+        generateShape();
+        highScoreElement.textContent = highScore;
+    }
+
+    startButton.addEventListener('click', startGame);
+    restartButton.addEventListener('click', startGame);
+    startGame();
+</script>
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(() => console.log('Service Worker Registered'))
+            .catch(err => console.log('Service Worker Registration Failed', err));
+    }
+
+    let highScore = localStorage.getItem('highScore') || 0;
+    document.getElementById('high-score').textContent = highScore;
+
+    function updateHighScore() {
+        if (currentScore > highScore) {
+            highScore = currentScore;
+            localStorage.setItem('highScore', highScore);
+            document.getElementById('high-score').textContent = highScore;
+        }
+    }
+</script>
+</body>
+</html>
