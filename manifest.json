@@ -2,7 +2,7 @@
     "name": "Brick Blitz",
     "short_name": "BrickBlitz",
     "description": "A fun block puzzle game.",
-    "start_url": "BrickBlitz.html",
+    "start_url": "index.html",
     "display": "standalone",
     "background_color": "#000000",
     "theme_color": "#000000",
