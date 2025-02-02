@@ -1,6 +1,6 @@
 const CACHE_NAME = 'brick-blitz-cache-v1';
 const urlsToCache = [
-    'BrickBlitz.html',
+    'index.html',
     'manifest.json',
     'sw.js',
     'icon-192.png',
