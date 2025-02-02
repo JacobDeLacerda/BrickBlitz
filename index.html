@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLOCK BLITZ</title>
+    <title>BRICK BLITZ</title>
     <link rel="manifest" href="manifest.json">
     <style>
         body {
@@ -139,8 +139,8 @@
 <body>
 <div id="title">
     <span class="title-letter" style="color: #3FE0D0">B</span>
-    <span class="title-letter" style="color: #7A6FF0">L</span>
-    <span class="title-letter" style="color: #FF6B6B">O</span>
+    <span class="title-letter" style="color: #7A6FF0">R</span>
+    <span class="title-letter" style="color: #FF6B6B">I</span>
     <span class="title-letter" style="color: #4ECDC4">C</span>
     <span class="title-letter" style="color: #45B7D1">K</span>
     <span class="title-letter" style="color: #FF9F43">B</span>
@@ -221,9 +221,9 @@
         currentShapes = [];
 
         const shapes = [
-            [[0, 0], [0, 1], [1, 0]],
-            [[0, 0], [0, 1], [0, 2]],
-            [[0, 0], [1, 0]],
+            [[0, 0], [0, 1], [1, 0]], // 90^* Angle/Triangle
+            [[0, 0], [0, 1], [0, 2]], // Line of 3
+            [[0, 0], [1, 0]], // Line of 2
             [[0, 0], [0, 1], [1, 0], [1, 1]],
             [[0, 0], [0, 1], [0, 2], [0, 3]], // line of 4
             [[0, 0], [1, 0], [2, 0], [1, 1]], // T-shape
