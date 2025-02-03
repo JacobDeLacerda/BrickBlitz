@@ -7,4 +7,5 @@ https://jacobdelacerda.github.io/BrickBlitz/
 ## Functionality
 - Uncompatible with touchscreen
 - High score caching feature in development
-- Completely functional Progressive Web App (PWA) that works offline.
+- Game over functoinality is still a little buggy
+- Completely functional Progressive Web App (PWA) that works offline
