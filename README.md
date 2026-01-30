@@ -1,5 +1,5 @@
 # BrickBlitz
-A free, open-source version of the popular block game "Block Blast", built with AI.
+A free, open-source version of the popular block game "Block Blast", built with AI (like 100% AI)
 
 ## Play Link
 https://jacobdelacerda.github.io/BrickBlitz/
