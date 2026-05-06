@@ -45,9 +45,10 @@
             gap: 20px;
         }
 
-        #placement-area, #generation-area {
+        #placement-area {
             display: grid;
             grid-template-columns: repeat(10, 30px);
+            grid-template-rows: repeat(10, 30px);
             gap: 2px;
             background-color: #111;
             padding: 5px;
@@ -56,9 +57,20 @@
         }
 
         #generation-area {
-            grid-template-columns: repeat(12, 30px);
-            grid-template-rows: repeat(4, 30px);
+            display: flex;
+            gap: 12px;
             touch-action: none;
+        }
+
+        .shape-slot {
+            display: grid;
+            grid-template-columns: repeat(4, 30px);
+            grid-template-rows: repeat(4, 30px);
+            gap: 2px;
+            background-color: #111;
+            padding: 5px;
+            border-radius: 4px;
+            border: 2px solid #222;
         }
 
         #placement-area {
@@ -176,7 +188,11 @@
 </div>
 <div id="game-container">
     <div id="placement-area"></div>
-    <div id="generation-area"></div>
+    <div id="generation-area">
+        <div class="shape-slot"></div>
+        <div class="shape-slot"></div>
+        <div class="shape-slot"></div>
+    </div>
 </div>
 <button id="start-button">NEW GAME</button>
 
@@ -220,8 +236,13 @@
     highScoreElement.textContent = highScore;
 
     // ── Grid init ────────────────────────────────────────────────────────────
+    const shapeSlots = document.querySelectorAll('.shape-slot');
     let placementGrid = createGrid(placementArea, 10, 10);
-    let generationGrid = createGrid(generationArea, 4, 12);
+    let generationGrids = [
+        createGrid(shapeSlots[0], 4, 4),
+        createGrid(shapeSlots[1], 4, 4),
+        createGrid(shapeSlots[2], 4, 4),
+    ];
     let placementCells = placementGrid.flat(); // cached for clearHighlights
 
     // ── Functions ────────────────────────────────────────────────────────────
@@ -247,7 +268,7 @@
         // Clean up previous shapes' listeners using stored references
         currentShapes.forEach(s => {
             s.shape.forEach(([row, col]) => {
-                const cell = generationGrid[row][col + s.offsetX];
+                const cell = generationGrids[s.slotIndex][row][col];
                 cell.classList.remove('block');
                 cell.style.backgroundColor = '#1a1a1a';
                 cell.removeEventListener('pointerdown', s.listener);
@@ -274,21 +295,20 @@
             if (Math.random() < 0.8) {
                 const shape = shapes[Math.floor(Math.random() * shapes.length)];
                 const color = colors[Math.floor(Math.random() * colors.length)];
-                const offsetX = placedCount * 4;
+                const slotIndex = placedCount;
 
                 const canPlace = shape.every(([row, col]) => {
-                    const targetCol = col + offsetX;
-                    return targetCol < 12 && !generationGrid[row][targetCol].classList.contains('block');
+                    return col < 4 && !generationGrids[slotIndex][row][col].classList.contains('block');
                 });
 
                 if (canPlace) {
-                    const newShape = { shape, color, offsetX };
+                    const newShape = { shape, color, slotIndex };
                     // Store bound listener so it can be correctly removed later
                     newShape.listener = (e) => startDrag(e, newShape);
                     currentShapes.push(newShape);
 
                     shape.forEach(([row, col]) => {
-                        const cell = generationGrid[row][col + offsetX];
+                        const cell = generationGrids[slotIndex][row][col];
                         cell.classList.add('block');
                         cell.style.backgroundColor = color;
                         cell.addEventListener('pointerdown', newShape.listener);
@@ -336,13 +356,16 @@
         const col = Math.floor((e.clientX - rect.left) / CELL_SIZE);
         const row = Math.floor((e.clientY - rect.top) / CELL_SIZE);
 
+        ghostContainer.style.display = 'block';
+
         if (isValidPlacement(row, col, draggedShape)) {
             ghostContainer.style.left = `${rect.left + col * CELL_SIZE}px`;
             ghostContainer.style.top = `${rect.top + row * CELL_SIZE}px`;
-            ghostContainer.style.display = 'block';
             highlightValidPosition(row, col, draggedShape);
         } else {
-            ghostContainer.style.display = 'none';
+            // Follow cursor freely when not over a valid placement
+            ghostContainer.style.left = `${e.clientX}px`;
+            ghostContainer.style.top = `${e.clientY}px`;
             clearHighlights();
         }
     }
@@ -360,7 +383,7 @@
         const success = placeShape(e, draggedShape);
         if (success) {
             draggedShape.shape.forEach(([row, col]) => {
-                const cell = generationGrid[row][col + draggedShape.offsetX];
+                const cell = generationGrids[draggedShape.slotIndex][row][col];
                 cell.classList.remove('block');
                 cell.style.backgroundColor = '#1a1a1a';
                 cell.removeEventListener('pointerdown', draggedShape.listener);
@@ -520,7 +543,11 @@
 
     function startGame() {
         placementGrid = createGrid(placementArea, 10, 10);
-        generationGrid = createGrid(generationArea, 4, 12);
+        generationGrids = [
+            createGrid(shapeSlots[0], 4, 4),
+            createGrid(shapeSlots[1], 4, 4),
+            createGrid(shapeSlots[2], 4, 4),
+        ];
         placementCells = placementGrid.flat();
         currentScore = 0;
         currentScoreElement.textContent = 0;
