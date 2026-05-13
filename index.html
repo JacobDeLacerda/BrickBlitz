@@ -393,6 +393,8 @@
             checkCompletedLines();
             if (currentShapes.length === 0) {
                 generateShape();
+            } else if (isGameOver()) {
+                endGame();
             }
         }
 
